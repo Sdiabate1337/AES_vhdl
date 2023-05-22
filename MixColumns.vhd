@@ -1,60 +1,27 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity MixColumns is
     port (
-        input : in std_logic_vector(127 downto 0);
+        clk    : in std_logic;
+        input  : in std_logic_vector(127 downto 0);
         output : out std_logic_vector(127 downto 0)
     );
-end MixColumns;
+end entity MixColumns;
 
 architecture Behavioral of MixColumns is
-    -- AES MixColumns matrix
-    constant mixMatrix : std_logic_vector(127 downto 0) :=
-        x"02" & x"03" & x"01" & x"01" &
-        x"01" & x"02" & x"03" & x"01" &
-        x"01" & x"01" & x"02" & x"03" &
-        x"03" & x"01" & x"01" & x"02";
-
-    -- Multiply operation for GF(2^8)
-    function multiply(a, b : std_logic_vector(7 downto 0)) return std_logic_vector is
-        variable result : std_logic_vector(7 downto 0);
-    begin
-        variable aVar, bVar : integer;
-    begin
-        aVar := to_integer(unsigned(a));
-        bVar := to_integer(unsigned(b));
-
-        case aVar is
-            when 1 =>
-                result := b;
-            when 2 =>
-                result := "0" & b(6 downto 0) xor '1';
-            when 3 =>
-                result := b(7) & b(6 downto 0) xor b;
-            when others =>
-                result := (others => '0');
-        end case;
-
-        return result;
-    end multiply;
-
 begin
-    -- Perform MixColumns operation
-    process(input)
-        variable column : std_logic_vector(31 downto 0);
+    process(clk)
     begin
-        for i in 0 to 3 loop
-            -- Extract a column from the input state matrix
-            column := input(i*32+31 downto i*32);
-
-            -- Perform the matrix multiplication
-            output(i*32+31 downto i*32) :=
-                multiply(mixMatrix(i*32+31 downto i*32), column) xor
-                multiply(mixMatrix(i*32+23 downto i*32+16), column(31 downto 24)) xor
-                multiply(mixMatrix(i*32+15 downto i*32+8), column(23 downto 16)) xor
-                multiply(mixMatrix(i*32+7 downto i*32), column(15 downto 8));
-        end loop;
+        if rising_edge(clk) then
+            -- Perform MixColumns operation
+            for i in 0 to 3 loop
+                output(31 downto 0 + 32*i)   <= input(31 downto 0 + 32*i) xor (input(95 downto 64 + 32*i) and x"0000000000000000000000000000000e") xor (input(63 downto 32 + 32*i) and x"0000000000000000000000000000000b") xor (input(31 downto 0 + 32*i) and x"0000000000000000000000000000000d") xor (input(127 downto 96 + 32*i) and x"00000000000000000000000000000009");
+                output(63 downto 32 + 32*i)   <= input(63 downto 32 + 32*i) xor (input(31 downto 0 + 32*i) and x"0000000000000000000000000000000e") xor (input(95 downto 64 + 32*i) and x"0000000000000000000000000000000b") xor (input(63 downto 32 + 32*i) and x"0000000000000000000000000000000d") xor (input(127 downto 96 + 32*i) and x"00000000000000000000000000000009");
+                output(95 downto 64 + 32*i)   <= input(95 downto 64 + 32*i) xor (input(63 downto 32 + 32*i) and x"0000000000000000000000000000000e") xor (input(31 downto 0 + 32*i) and x"0000000000000000000000000000000b") xor (input(95 downto 64 + 32*i) and x"0000000000000000000000000000000d") xor (input(127 downto 96 + 32*i) and x"00000000000000000000000000000009");
+                output(127 downto 96 + 32*i) <= input(127 downto 96 + 32*i) xor (input(95 downto 64 + 32*i) and x"0000000000000000000000000000000e") xor (input(63 downto 32 + 32*i) and x"0000000000000000000000000000000b") xor (input(31 downto 0 + 32*i) and x"0000000000000000000000000000000d") xor (input(127 downto 96 + 32*i) and x"00000000000000000000000000000009");
+            end loop;
+        end if;
     end process;
-
-end Behavioral;
+end architecture Behavioral;
