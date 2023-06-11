@@ -14,6 +14,9 @@ begin
     process(clk)
     begin
         if rising_edge(clk) then
+            -- Lorsque le front montant de l'horloge se produit,
+            -- les octets d'entrée sont réarrangés selon la spécification de ShiftRows
+            -- et les résultats sont affectés aux octets de sortie correspondants.
             output(7 downto 0)     <= input(7 downto 0);
             output(15 downto 8)    <= input(151 downto 144);
             output(23 downto 16)   <= input(23 downto 16);

@@ -1,11 +1,9 @@
+-- vhdl-linter-disable type-resolved
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity AES is
-    generic (
-        ROUNDS : integer := 10
-    );
     port (
         clk        : in std_logic;
         plaintext  : in std_logic_vector(127 downto 0);
@@ -50,8 +48,10 @@ architecture Behavioral of AES is
         x"41", x"99", x"2D", x"0F", x"B0", x"54", x"BB", x"16"
     );
 
-    signal state : std_logic_vector(127 downto 0);
+    signal state : std_ulogic_vector(127 downto 0);
+    signal round_key : std_ulogic_vector(127 downto 0);
 
+    -- Déclaration des composants internes
     component SubBytes is
         generic (
             SBOX : std_logic_vector(255 downto 0)
@@ -65,17 +65,17 @@ architecture Behavioral of AES is
 
     component ShiftRows is
         port (
-            clk    : in std_logic;
-            input  : in std_logic_vector(127 downto 0);
-            output : out std_logic_vector(127 downto 0)
+            clk    : in std_ulogic;
+            input  : in std_ulogic_vector(127 downto 0);
+            output : out std_ulogic_vector(127 downto 0)
         );
     end component ShiftRows;
 
     component MixColumns is
         port (
-            clk    : in std_logic;
-            input  : in std_logic_vector(127 downto 0);
-            output : out std_logic_vector(127 downto 0)
+            clk    : in std_ulogic;
+            input  : in std_ulogic_vector(127 downto 0);
+            output : out std_ulogic_vector(127 downto 0)
         );
     end component MixColumns;
 
@@ -101,88 +101,77 @@ architecture Behavioral of AES is
                SBOX(to_integer(unsigned(input(11 downto 8))));
     end function SubWord;
 
-    function KeyExpansion(round_key : std_logic_vector(127 downto 0); round : integer) return std_logic_vector(127 downto 0) is
+    function KeyExpansion(round_key : std_ulogic_vector(127 downto 0); round : integer) return std_logic_vector(127 downto 0) is
         variable temp : std_logic_vector(31 downto 0);
     begin
         temp := RotWord(round_key(31 downto 0));
         temp := SubWord(temp);
         temp := temp xor x"01" & x"00" & x"00" & x"00";
 
-        return round_key(127 downto 32) & temp;
+        return temp & round_key(127 downto 32);
     end function KeyExpansion;
 
 begin
-    process(clk)
-        variable round_key : std_logic_vector(127 downto 0);
-        variable round : integer;
+    process (clk)
+        variable round : integer := 0;
     begin
         if rising_edge(clk) then
             if round = 0 then
-                state <= plaintext;
-                round_key := key;
-                round := 0;
+                round_key <= key;
             else
-                state <= AddRoundKey_inst.output;
-                round_key := KeyExpansion(round_key, round);
-                round := round + 1;
+                round_key <= KeyExpansion(round_key, round);
+            end if;
+            if round = 10 then
+                state <= AddRoundKey(state, round_key);
+            else
+                state <= SubBytes(state);
+                state <= ShiftRows(state);
+                state <= MixColumns(state);
+                state <= AddRoundKey(state, round_key);
             end if;
 
-            if round < ROUNDS then
-                for i in 1 to 9 loop
-                    SubBytes_inst : SubBytes
-                        generic map (
-                            SBOX => SBOX
-                        )
-                        port map (
-                            clk    => clk,
-                            input  => state(7 downto 0),
-                            output => state(7 downto 0)
-                        );
-                    ShiftRows_inst : ShiftRows
-                        port map (
-                            clk    => clk,
-                            input  => state,
-                            output => state
-                        );
-                    MixColumns_inst : MixColumns
-                        port map (
-                            clk    => clk,
-                            input  => state,
-                            output => state
-                        );
-                    AddRoundKey_inst : AddRoundKey
-                        port map (
-                            clk       => clk,
-                            input     => state,
-                            round_key => round_key,
-                            output    => state
-                        );
-                end loop;
+            round := round + 1;
 
-                SubBytes_inst : SubBytes
-                    generic map (
-                        SBOX => SBOX
-                    )
-                    port map (
-                        clk    => clk,
-                        input  => state(7 downto 0),
-                        output => state(7 downto 0)
-                    );
-                ShiftRows_inst : ShiftRows
-                    port map (
-                        clk    => clk,
-                        input  => state,
-                        output => state
-                    );
-                AddRoundKey_inst : AddRoundKey
-                    port map (
-                        clk       => clk,
-                        input     => state,
-                        round_key => round_key,
-                        output    => state
-                    );
+            if round = 11 then
                 ciphertext <= state;
             end if;
         end if;
     end process;
+
+    -- Instanciation des composants internes
+    SubBytes_inst : SubBytes
+        generic map (
+            SBOX => SBOX
+        )
+        port map (
+            clk    => clk,
+            input  => state(7 downto 0),
+            output => state(7 downto 0)
+        );
+
+    ShiftRows_inst : ShiftRows
+        port map (
+            clk    => clk,
+            input  => state,
+            output => state
+        );
+
+    MixColumns_inst : MixColumns
+        port map (
+            clk    => clk,
+            input  => state,
+            output => state
+        );
+
+    AddRoundKey_inst : AddRoundKey
+        port map (
+            clk       => clk,
+            input     => state,
+            round_key => round_key,
+            output    => state
+        );
+
+    -- Assignation de la sortie
+    ciphertext <= state;
+
 end architecture Behavioral;
