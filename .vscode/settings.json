@@ -1,0 +1,17 @@
+{
+    "vhdl.linter": "ghdl",
+    "vhdl.simulator": "ghdl",
+    "vhdl.linting.active": true,
+    "vhdl.linting.run": "onType",
+    "vhdl.linting.toolArgs": [
+      "--std=08" // Spécifiez la version du standard VHDL, par exemple "93", "2002", "2008" ou "08"
+    ],
+    "vhdl.simulatorArgs": [
+      "--std=08", // Spécifiez la version du standard VHDL, par exemple "93", "2002", "2008" ou "08"
+      "--ieee=synopsys" // Spécifiez la bibliothèque IEEE, par exemple "ieee" ou "ieee_proposed"
+    ],
+    "vhdl.workspaceFolders": {
+      "src": "../CRYPT_IMPLEMENTATION" // Spécifiez le chemin d'accès à vos fichiers source VHDL par rapport à la racine du projet
+    }
+  }
+  
